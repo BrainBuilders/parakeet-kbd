@@ -29,11 +29,12 @@ cd parakeet-claude
 # Create venv and install
 python3 -m venv venv
 source venv/bin/activate
-pip install torch torchvision torchaudio
+pip install --upgrade pip
+pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 pip install -e .
 ```
 
-> **Note for older GPUs (Pascal / GTX 10xx):** Recent PyTorch versions dropped support for compute capability 6.x. Use `pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121` instead.
+> **Why pin torch 2.5.1?** PyTorch 2.6+ drops CUDA kernels for older GPUs (Pascal / GTX 10xx, compute capability 6.x). Pinning to 2.5.1 with the cu121 index ensures broad GPU compatibility. If you have a newer GPU (Turing/Ampere/Ada) you can skip the torch line and let `pip install -e .` pull the latest.
 
 Install SoX if you don't have it:
 
