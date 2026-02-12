@@ -1,0 +1,25 @@
+[project]
+name = "parakeet-claude"
+version = "0.1.0"
+description = "Voice input for Claude Code using Nvidia Parakeet TDT 0.6B V3"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "nemo_toolkit[asr]>=2.4",
+    "torch>=2.4",
+]
+
+[project.urls]
+Repository = "https://github.com/BrainBuilders/parakeet-claude"
+
+[project.scripts]
+parakeet-claude = "parakeet_claude.__main__:main"
+parakeet-server = "parakeet_server.__main__:run_server"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["parakeet_claude*", "parakeet_server*"]
