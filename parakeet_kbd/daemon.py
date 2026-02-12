@@ -1,6 +1,6 @@
 """System-wide voice-to-keyboard daemon.
 
-Loads the Parakeet ASR model, listens for a global hotkey (F5), records
+Loads the Parakeet ASR model, listens for a global hotkey (F9), records
 audio, transcribes it in-process, and types the result into whichever
 window has focus via xdotool.
 """
@@ -17,7 +17,7 @@ from pynput import keyboard
 
 MODEL_NAME = "nvidia/parakeet-tdt-0.6b-v3"
 
-TRIGGER_KEY = keyboard.Key.f5
+TRIGGER_KEY = keyboard.Key.f9
 
 SAMPLE_RATE = 16000
 SILENCE_DURATION = "3.0"
@@ -67,7 +67,7 @@ class ParakeetKbd:
     def _record_flow(self):
         try:
             _play_beep(BEEP_START_FREQ)
-            _notify("Recording... (F5 to stop)")
+            _notify("Recording... (F9 to stop)")
 
             self._rec_proc = subprocess.Popen([
                 "rec", "-q",
@@ -162,7 +162,7 @@ def main():
     print("Model loaded.")
 
     daemon = ParakeetKbd(model)
-    print("parakeet-kbd: listening. Press F5 to toggle voice recording.")
+    print("parakeet-kbd: listening. Press F9 to toggle voice recording.")
     _notify("Parakeet keyboard active")
 
     with keyboard.Listener(on_press=daemon.on_press) as listener:

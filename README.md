@@ -1,6 +1,6 @@
 # parakeet-kbd
 
-System-wide voice-to-keyboard using [Nvidia Parakeet TDT 0.6B V3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3). Press **F5** to speak, text appears wherever your cursor is — browser, editor, terminal, chat.
+System-wide voice-to-keyboard using [Nvidia Parakeet TDT 0.6B V3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3). Press **F9** to speak, text appears wherever your cursor is — browser, editor, terminal, chat.
 
 ## How it works
 
@@ -55,8 +55,8 @@ First run downloads the model (~1.2 GB) and takes ~10s to load. Subsequent start
 
 ### Voice input flow
 
-1. Press **F5** — a beep confirms recording started
-2. Speak — recording auto-stops after 3 seconds of silence, or press **F5** again to stop manually
+1. Press **F9** — a beep confirms recording started
+2. Speak — recording auto-stops after 3 seconds of silence, or press **F9** again to stop manually
 3. A second beep plays, a notification shows "Transcribing..."
 4. Transcribed text is typed into the focused window
 
