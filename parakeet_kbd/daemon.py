@@ -1,23 +1,21 @@
 """System-wide voice-to-keyboard daemon.
 
-Listens for a global hotkey (F5), records audio, transcribes via
-parakeet-server, and types the result into whichever window has focus.
+Loads the Parakeet ASR model, listens for a global hotkey (F5), records
+audio, transcribes it in-process, and types the result into whichever
+window has focus via xdotool.
 """
 
+import logging
 import os
-import socket
 import subprocess
+import sys
 import tempfile
 import threading
+import warnings
 
 from pynput import keyboard
 
-from parakeet_server.protocol import recv_message, send_message
-
-# --- Config ---------------------------------------------------------------
-
-_runtime = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
-SOCKET_PATH = os.path.join(_runtime, "parakeet-claude", "parakeet.sock")
+MODEL_NAME = "nvidia/parakeet-tdt-0.6b-v3"
 
 TRIGGER_KEY = keyboard.Key.f5
 
@@ -30,13 +28,10 @@ BEEP_STOP_FREQ = 440
 BEEP_DURATION = "0.1"
 BEEP_VOLUME = "0.3"
 
-TRANSCRIBE_TIMEOUT = 30.0
-
-
-# --- Daemon ----------------------------------------------------------------
 
 class ParakeetKbd:
-    def __init__(self):
+    def __init__(self, model):
+        self.model = model
         self.recording = False
         self._rec_proc = None
         self._audio_path = None
@@ -94,7 +89,8 @@ class ParakeetKbd:
                 return
 
             _notify("Transcribing...")
-            text = _transcribe(self._audio_path)
+            output = self.model.transcribe([self._audio_path])
+            text = output[0].text.strip() if output else ""
 
             if text:
                 _type_text(text)
@@ -111,25 +107,6 @@ class ParakeetKbd:
                     os.unlink(self._audio_path)
                 except OSError:
                     pass
-
-
-# --- Helpers ---------------------------------------------------------------
-
-def _transcribe(audio_path):
-    """Send audio to parakeet-server and return transcribed text."""
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(TRANSCRIBE_TIMEOUT)
-    try:
-        sock.connect(SOCKET_PATH)
-        send_message(sock, {"type": "transcribe", "audio_path": audio_path})
-        response = recv_message(sock)
-        if response["type"] == "result":
-            return response.get("text", "").strip()
-        if response["type"] == "error":
-            raise RuntimeError(response["message"])
-        return ""
-    finally:
-        sock.close()
 
 
 def _type_text(text):
@@ -160,7 +137,9 @@ def _notify(message):
     """Show a desktop notification."""
     try:
         subprocess.run(
-            ["notify-send", "-t", "2000", "-h", "string:x-canonical-private-synchronous:parakeet", "Parakeet", message],
+            ["notify-send", "-t", "2000", "-h",
+             "string:x-canonical-private-synchronous:parakeet",
+             "Parakeet", message],
             capture_output=True,
             timeout=2,
         )
@@ -169,24 +148,20 @@ def _notify(message):
 
 
 def main():
-    print("parakeet-kbd: checking server...")
-    # Quick ping
-    try:
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.settimeout(2)
-        sock.connect(SOCKET_PATH)
-        send_message(sock, {"type": "ping"})
-        resp = recv_message(sock)
-        sock.close()
-        if resp.get("type") == "pong":
-            print(f"parakeet-kbd: server OK ({resp.get('model', '?')})")
-        else:
-            print("parakeet-kbd: WARNING — unexpected server response")
-    except (ConnectionRefusedError, FileNotFoundError, OSError) as exc:
-        print(f"parakeet-kbd: WARNING — server not reachable ({exc})")
-        print("  Start it first: parakeet-server")
+    print(f"Loading {MODEL_NAME}...")
 
-    daemon = ParakeetKbd()
+    warnings.filterwarnings("ignore")
+    logging.disable(logging.WARNING)
+
+    import nemo.collections.asr as nemo_asr
+    model = nemo_asr.models.ASRModel.from_pretrained(model_name=MODEL_NAME)
+
+    logging.disable(logging.NOTSET)
+    warnings.resetwarnings()
+
+    print("Model loaded.")
+
+    daemon = ParakeetKbd(model)
     print("parakeet-kbd: listening. Press F5 to toggle voice recording.")
     _notify("Parakeet keyboard active")
 
