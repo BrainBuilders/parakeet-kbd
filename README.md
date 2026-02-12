@@ -4,7 +4,7 @@ System-wide voice-to-keyboard using [Nvidia Parakeet TDT 0.6B V3](https://huggin
 
 ## How it works
 
-A single daemon that loads the Parakeet ASR model into GPU memory, then listens for the F5 key. On press it records audio via SoX, transcribes it, and types the result into the focused window via xdotool.
+A single daemon that loads the Parakeet ASR model into GPU memory, then listens for the F9 key. On press it records audio via SoX, transcribes it, and types the result into the focused window via xdotool.
 
 ## Requirements
 
