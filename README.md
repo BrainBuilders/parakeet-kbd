@@ -2,17 +2,28 @@
 
 System-wide voice-to-keyboard using [Nvidia Parakeet TDT 0.6B V3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3). Press **F9** to speak, text appears wherever your cursor is — browser, editor, terminal, chat.
 
+Works on both X11 and Wayland.
+
 ## How it works
 
-A single daemon that loads the Parakeet ASR model into GPU memory, then listens for the F9 key. On press it records audio via SoX, transcribes it, and types the result into the focused window via xdotool.
+A single daemon that loads the Parakeet ASR model into GPU memory, then listens for the F9 key. On press it records audio via SoX, transcribes it, and types the result into the focused window.
+
+- **X11**: hotkey via pynput/Xlib, typing via xdotool
+- **Wayland**: hotkey via evdev, typing via ydotool (requires `input` group)
 
 ## Requirements
 
-- Linux with X11
+- Linux (X11 or Wayland)
 - Python 3.10+
 - NVIDIA GPU with CUDA support
 - [SoX](https://sox.sourceforge.net/) (`rec` and `play` commands) for audio recording and beeps
-- [xdotool](https://github.com/jordansissel/xdotool) for typing into the focused window
+
+Plus one of:
+
+| Session | Hotkey listener | Text injection | Extra permissions |
+|---------|----------------|----------------|-------------------|
+| X11 | pynput (automatic) | [xdotool](https://github.com/jordansissel/xdotool) | none |
+| Wayland | evdev (automatic) | [ydotool](https://github.com/ReimuNotMoe/ydotool) | `input` group |
 
 ## Installation
 
@@ -32,14 +43,18 @@ pip install -e .
 Install system dependencies:
 
 ```bash
-# Debian/Ubuntu
+# Debian/Ubuntu (X11)
 sudo apt install sox libsox-fmt-all xdotool
 
+# Debian/Ubuntu (Wayland)
+sudo apt install sox libsox-fmt-all ydotool
+sudo usermod -aG input $USER   # log out and back in
+
 # Fedora
-sudo dnf install sox sox-plugins-freeworld xdotool
+sudo dnf install sox sox-plugins-freeworld xdotool   # or ydotool for Wayland
 
 # Arch
-sudo pacman -S sox xdotool
+sudo pacman -S sox xdotool   # or ydotool for Wayland
 ```
 
 > **Fedora note:** `sox-plugins-freeworld` is in the [RPM Fusion free](https://rpmfusion.org/) repository. Enable it first with `sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm` if you haven't already.

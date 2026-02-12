@@ -2,22 +2,21 @@
 
 Loads the Parakeet ASR model, listens for a global hotkey (F9), records
 audio, transcribes it in-process, and types the result into whichever
-window has focus via xdotool.
+window has focus.
+
+Supports both X11 (via pynput + xdotool) and Wayland (via evdev + ydotool).
 """
 
 import logging
 import os
+import select
 import subprocess
 import sys
 import tempfile
 import threading
 import warnings
 
-from pynput import keyboard
-
 MODEL_NAME = "nvidia/parakeet-tdt-0.6b-v3"
-
-TRIGGER_KEY = keyboard.Key.f9
 
 SAMPLE_RATE = 16000
 SILENCE_DURATION = "3.0"
@@ -29,6 +28,15 @@ BEEP_DURATION = "0.1"
 BEEP_VOLUME = "0.3"
 
 
+def _is_wayland():
+    if os.environ.get("WAYLAND_DISPLAY"):
+        return True
+    return os.environ.get("XDG_SESSION_TYPE") == "wayland"
+
+
+SESSION_IS_WAYLAND = _is_wayland()
+
+
 class ParakeetKbd:
     def __init__(self, model):
         self.model = model
@@ -36,10 +44,6 @@ class ParakeetKbd:
         self._rec_proc = None
         self._audio_path = None
         self._lock = threading.Lock()
-
-    def on_press(self, key):
-        if key == TRIGGER_KEY:
-            self.toggle()
 
     def toggle(self):
         with self._lock:
@@ -109,13 +113,64 @@ class ParakeetKbd:
                     pass
 
 
-def _type_text(text):
-    """Type text into the currently focused window via xdotool."""
-    subprocess.run(
-        ["xdotool", "type", "--clearmodifiers", "--delay", "0", "--", text],
-        timeout=10,
-    )
+# --- Key listening ---------------------------------------------------------
 
+def _listen_pynput(daemon):
+    """Listen for F9 via pynput/Xlib (X11)."""
+    from pynput import keyboard
+
+    def on_press(key):
+        if key == keyboard.Key.f9:
+            daemon.toggle()
+
+    with keyboard.Listener(on_press=on_press) as listener:
+        listener.join()
+
+
+def _listen_evdev(daemon):
+    """Listen for F9 via evdev (Wayland / kernel-level)."""
+    import evdev
+
+    devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
+    keyboards = {
+        d.fd: d for d in devices
+        if evdev.ecodes.EV_KEY in d.capabilities()
+    }
+
+    if not keyboards:
+        print("parakeet-kbd: ERROR — no keyboard devices found.", file=sys.stderr)
+        print("  Make sure your user is in the 'input' group:", file=sys.stderr)
+        print("    sudo usermod -aG input $USER", file=sys.stderr)
+        print("  Then log out and back in.", file=sys.stderr)
+        sys.exit(1)
+
+    while True:
+        r, _, _ = select.select(keyboards.values(), [], [])
+        for dev in r:
+            for event in dev.read():
+                if (event.type == evdev.ecodes.EV_KEY
+                        and event.value == 1
+                        and event.code == evdev.ecodes.KEY_F9):
+                    daemon.toggle()
+
+
+# --- Text injection --------------------------------------------------------
+
+def _type_text(text):
+    """Type text into the currently focused window."""
+    if SESSION_IS_WAYLAND:
+        subprocess.run(
+            ["ydotool", "type", "--delay", "0", "--", text],
+            timeout=10,
+        )
+    else:
+        subprocess.run(
+            ["xdotool", "type", "--clearmodifiers", "--delay", "0", "--", text],
+            timeout=10,
+        )
+
+
+# --- Utilities -------------------------------------------------------------
 
 def _play_beep(frequency):
     """Play a short beep via SoX."""
@@ -161,9 +216,14 @@ def main():
 
     print("Model loaded.")
 
-    daemon = ParakeetKbd(model)
+    session = "Wayland" if SESSION_IS_WAYLAND else "X11"
+    print(f"parakeet-kbd: {session} session detected.")
     print("parakeet-kbd: listening. Press F9 to toggle voice recording.")
+
+    daemon = ParakeetKbd(model)
     _notify("Parakeet keyboard active")
 
-    with keyboard.Listener(on_press=daemon.on_press) as listener:
-        listener.join()
+    if SESSION_IS_WAYLAND:
+        _listen_evdev(daemon)
+    else:
+        _listen_pynput(daemon)
