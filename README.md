@@ -41,11 +41,22 @@ Install SoX if you don't have it:
 # Debian/Ubuntu
 sudo apt install sox libsox-fmt-all
 
+# Fedora
+sudo dnf install sox sox-plugins-freeworld
+
 # Arch
 sudo pacman -S sox
 ```
 
+> **Fedora note:** `sox-plugins-freeworld` is in the [RPM Fusion free](https://rpmfusion.org/) repository. Enable it first with `sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm` if you haven't already.
+
 ## Usage
+
+Activate the virtualenv first (needed in every new terminal):
+
+```bash
+source venv/bin/activate
+```
 
 **Terminal 1** — Start the ASR server (keep it running):
 
